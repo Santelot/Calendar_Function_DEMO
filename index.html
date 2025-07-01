@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototipo Final de Planificador Escolar Inteligente</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg-color: #ffffff;
+            --text-primary: #1c1e21;
+            --text-secondary: #65676b;
+            --accent-primary: #0d6efd;
+            --border-color: #dddfe2;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --weekend-bg: #f8f9fa;
+            --holiday-bg: #fff0f1;
+            --holiday-text: #d93025;
+            --grip-color: #8a8d91;
+            --mandatory-bg: #e7f3ff;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 2.5rem; }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 2rem;
+            align-items: flex-start;
+        }
+
+        .card {
+            background-color: var(--card-bg-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            padding: 1.5rem 2rem;
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Controles */
+        .control-group { margin-bottom: 1.5rem; }
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+        }
+        select, input[type="date"], textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 1rem;
+            background-color: #f5f6f7;
+            box-sizing: border-box;
+        }
+        select:disabled { background-color: #e9ecef; color: var(--text-secondary); }
+        textarea { resize: vertical; min-height: 80px; }
+
+        .day-selector { display: flex; gap: 5px; }
+        .day-selector input { display: none; }
+        .day-selector label {
+            flex: 1; text-align: center; padding: 8px 0;
+            border: 1px solid var(--border-color); border-radius: 6px;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .day-selector input:checked + label {
+            background-color: var(--accent-primary); color: #fff;
+            border-color: var(--accent-primary);
+        }
+
+        /* Lista de Prioridades */
+        .priority-list-container { max-height: 400px; overflow-y: auto; padding-right: 5px; }
+        #lista-prioridad { list-style: none; padding: 0; margin: 0; }
+        #lista-prioridad li {
+            background-color: #fdfdff; padding: 10px; margin-bottom: 8px;
+            border: 1px solid #e8e8e8; border-radius: 8px;
+            display: flex; align-items: center; font-weight: 500;
+            transition: background-color 0.2s ease;
+        }
+        #lista-prioridad li.is-mandatory {
+            background-color: var(--mandatory-bg);
+            border-left: 4px solid var(--accent-primary);
+        }
+
+        .class-name { flex-grow: 1; }
+        .color-swatch {
+            width: 18px; height: 18px; border-radius: 50%;
+            margin-right: 12px; flex-shrink: 0;
+        }
+        .grip-icon, .lock-toggle {
+            cursor: pointer; padding: 5px;
+            color: var(--grip-color);
+            flex-shrink: 0;
+        }
+        .grip-icon { cursor: grab; }
+
+        .lock-toggle .icon-unlocked { display: block; }
+        .lock-toggle .icon-locked { display: none; }
+        .is-mandatory .lock-toggle .icon-unlocked { display: none; }
+        .is-mandatory .lock-toggle .icon-locked { display: block; color: var(--accent-primary); }
+
+        .sortable-ghost { opacity: 0.6; background: #cce5ff; }
+
+        /* Calendario */
+        .calendar-tabs {
+            display: flex; flex-wrap: wrap; gap: 5px;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 1.5rem;
+        }
+        .tab-link {
+            padding: 10px 15px; border: none; background: none;
+            cursor: pointer; font-size: 0.95rem; font-weight: 600;
+            border-radius: 8px 8px 0 0; color: var(--text-secondary);
+            border-bottom: 3px solid transparent; transition: all 0.2s ease;
+        }
+        .tab-link.active, .tab-link:hover {
+            color: var(--accent-primary);
+            background-color: var(--mandatory-bg);
+        }
+        .tab-link.active { border-bottom-color: var(--accent-primary); }
+
+        #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .day-header, .day-cell { text-align: center; border-radius: 6px; }
+        .day-header { padding: 8px 0; font-weight: 600; color: var(--text-secondary); }
+        .day-cell {
+            border: 1px solid var(--border-color); min-height: 90px;
+            padding: 8px; position: relative; font-size: 0.85rem;
+        }
+        .day-number { position: absolute; top: 5px; right: 8px; font-weight: 500; }
+        .day-cell.weekend { background-color: var(--weekend-bg); }
+        .day-cell.holiday { background-color: var(--holiday-bg); border-color: var(--holiday-text); }
+        .holiday .day-number { color: var(--holiday-text); font-weight: bold; }
+        .day-cell.empty { background: none; border: none; }
+        .clase-info {
+            height: 100%; width: 100%; border-radius: 5px; color: white;
+            padding: 8px; text-align: left; display: flex;
+            flex-direction: column; justify-content: center; box-sizing: border-box;
+            font-weight: 600;
+        }
+        .clase-info-title { font-size: 0.9rem; }
+        .clase-info-subtitle { font-size: 0.75rem; opacity: 0.8; }
+        
+        @media (max-width: 1200px) { .main-content { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Prototipo Final de Planificador Escolar Inteligente</h1>
+    <div class="main-content">
+        <div class="card" id="controls-card">
+            <h2>Controles de Simulación</h2>
+            <div class="control-group">
+                <label for="fecha-inicio">Fecha de Inicio de Clases</label>
+                <input type="date" id="fecha-inicio" value="2025-09-01">
+            </div>
+            <div class="control-group">
+                <label>Día de la Semana para Clases</label>
+                <div class="day-selector">
+                    <input type="radio" id="d1" name="dia_clase" value="1" checked><label for="d1">L</label>
+                    <input type="radio" id="d2" name="dia_clase" value="2"><label for="d2">M</label>
+                    <input type="radio" id="d3" name="dia_clase" value="3"><label for="d3">X</label>
+                    <input type="radio" id="d4" name="dia_clase" value="4"><label for="d4">J</label>
+                    <input type="radio" id="d5" name="dia_clase" value="5"><label for="d5">V</label>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="dias-festivos">Días Festivos / Vacaciones (YYYY-MM-DD, uno por línea)</label>
+                <textarea id="dias-festivos" placeholder="2025-12-25
+2026-01-01"></textarea>
+            </div>
+            <div class="control-group">
+                <label for="selector-clases">Total de Clases a Impartir</label>
+                <select id="selector-clases"></select>
+            </div>
+             <div class="control-group">
+                <label>Prioridad de Clases (Arrastrar para ordenar, 🔒 para hacerla obligatoria)</label>
+                <div class="priority-list-container">
+                    <ul id="lista-prioridad"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="calendar-card">
+            <div id="calendar-tabs-container"></div>
+            <div id="calendar-grid"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const CONFIG = {
+        MIN_CLASES: 24,
+        MAX_CLASES: 40,
+        CLASES: [
+            { id: 1, nombre: "GC Intro 1", color: "#009c05" }, { id: 2, nombre: "GC Intro 1", color: "#009c05" },
+            { id: 3, nombre: "Misión 1", color: "#00609c" }, { id: 4, nombre: "Misión 2", color: "#00609c" },
+            { id: 5, nombre: "Misión 3", color: "#00609c" }, { id: 6, nombre: "Misión 4", color: "#00609c" },
+            { id: 7, nombre: "Misión 5", color: "#00609c" }, { id: 8, nombre: "Misión 6", color: "#00609c" },
+            { id: 9, nombre: "Misión 7", color: "#00609c" }, { id: 10, nombre: "Misión 8", color: "#00609c" },
+            { id: 11, nombre: "Misión 9", color: "#00609c" }, { id: 12, nombre: "Misión 10", color: "#00609c" },
+            { id: 13, nombre: "Misión 11", color: "#00609c" }, { id: 14, nombre: "Misión 12", color: "#00609c" },
+            { id: 15, nombre: "Piranha Tank 1", color: "#9c8f00" }, { id: 16, nombre: "Piranha Tank 1", color: "#9c8f00" },
+            { id: 17, nombre: "Piranha Tank 1", color: "#9c8f00" }, { id: 18, nombre: "Misión 13", color: "#00609c" },
+            { id: 19, nombre: "Misión 14", color: "#00609c" }, { id: 20, nombre: "Misión 15", color: "#00609c" },
+            { id: 21, nombre: "Misión 16", color: "#00609c" }, { id: 22, nombre: "Misión 17", color: "#00609c" },
+            { id: 23, nombre: "Misión 18", color: "#00609c" }, { id: 24, nombre: "Misión 19", color: "#00609c" },
+            { id: 25, nombre: "Misión 20", color: "#00609c" }, { id: 26, nombre: "Misión 21", color: "#00609c" },
+            { id: 27, nombre: "Misión 22", color: "#00609c" }, { id: 28, nombre: "Piranha Tank 2", color: "#9c8f00" },
+            { id: 29, nombre: "Piranha Tank 2", color: "#9c8f00" }, { id: 30, nombre: "Piranha Tank 2", color: "#9c8f00" },
+            { id: 31, nombre: "Taller de Innovación", color: "#9c5600" }, { id: 32, nombre: "Taller de Innovación", color: "#9c5600" },
+            { id: 33, nombre: "Taller de Innovación", color: "#9c5600" }, { id: 34, nombre: "Taller de Innovación", color: "#9c5600" },
+            { id: 35, nombre: "Proyecto Final", color: "#00089c" }, { id: 36, nombre: "Proyecto Final", color: "#00089c" },
+            { id: 37, nombre: "Proyecto Final", color: "#00089c" }, { id: 38, nombre: "Proyecto Final", color: "#00089c" },
+            { id: 39, nombre: "Presentación Final", color: "#9c0000" }, { id: 40, nombre: "Presentación Final", color: "#9c0000" },
+        ]
+    };
+
+    const dom = {
+        listaPrioridad: document.getElementById('lista-prioridad'),
+        selectorClases: document.getElementById('selector-clases'),
+        fechaInicio: document.getElementById('fecha-inicio'),
+        diasFestivos: document.getElementById('dias-festivos'),
+        daySelector: document.querySelector('.day-selector'),
+        calendarTabs: document.getElementById('calendar-tabs-container'),
+        calendarGrid: document.getElementById('calendar-grid'),
+    };
+
+    let agendaClases = {};
+    let diasFestivosSet = new Set();
+    const gripIconSVG = `<svg class="grip-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 6a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>`;
+    const lockIconSVG = `<button class="lock-toggle" title="Marcar como obligatoria">
+        <svg class="icon-unlocked" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11 1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2zM5 8V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1H5z"/></svg>
+        <svg class="icon-locked" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+    </button>`;
+    
+    function inicializar() {
+        CONFIG.CLASES.forEach(clase => {
+            const li = document.createElement('li');
+            li.dataset.id = clase.id;
+            li.innerHTML = `
+                <span title="Arrastrar para priorizar">${gripIconSVG}</span>
+                <span class="color-swatch" style="background-color: ${clase.color};"></span>
+                <span class="class-name">${clase.nombre}</span>
+                ${lockIconSVG}
+            `;
+            dom.listaPrioridad.appendChild(li);
+        });
+
+        for (let i = CONFIG.MAX_CLASES; i >= CONFIG.MIN_CLASES; i--) {
+            dom.selectorClases.add(new Option(`${i} clases`, i));
+        }
+        dom.selectorClases.value = CONFIG.MAX_CLASES;
+        
+        new Sortable(dom.listaPrioridad, { animation: 150, handle: '.grip-icon', onEnd: calcularYRenderizarTodo });
+        
+        dom.listaPrioridad.addEventListener('click', (e) => {
+            const lockButton = e.target.closest('.lock-toggle');
+            if (lockButton) {
+                toggleLockState(lockButton.parentElement);
+            }
+        });
+        
+        [dom.selectorClases, dom.fechaInicio, dom.diasFestivos, dom.daySelector].forEach(el => {
+            el.addEventListener('change', calcularYRenderizarTodo);
+        });
+
+        calcularYRenderizarTodo();
+    }
+    
+    function toggleLockState(liElement) {
+        const isMandatory = liElement.classList.toggle('is-mandatory');
+        liElement.dataset.mandatory = isMandatory;
+        actualizarOpcionesSelector();
+        calcularYRenderizarTodo();
+    }
+
+    function actualizarOpcionesSelector() {
+        const mandatoryCount = dom.listaPrioridad.querySelectorAll('.is-mandatory').length;
+        let currentSelection = parseInt(dom.selectorClases.value);
+        
+        // Si la selección actual es menor que las obligatorias, ajustarla
+        if (currentSelection < mandatoryCount) {
+            dom.selectorClases.value = mandatoryCount;
+        }
+
+        // Deshabilitar opciones no válidas
+        Array.from(dom.selectorClases.options).forEach(option => {
+            option.disabled = parseInt(option.value) < mandatoryCount;
+        });
+    }
+
+    function calcularYRenderizarTodo() {
+        const ordenPrioridad = Array.from(dom.listaPrioridad.querySelectorAll('li'));
+        const numClasesDeseadas = parseInt(dom.selectorClases.value);
+        
+        // Separar clases obligatorias de las opcionales
+        const mandatoryIds = ordenPrioridad.filter(li => li.dataset.mandatory === 'true').map(li => parseInt(li.dataset.id));
+        const optionalIdsByPriority = ordenPrioridad.filter(li => li.dataset.mandatory !== 'true').map(li => parseInt(li.dataset.id));
+
+        // Calcular cuántas clases opcionales deben ser descartadas
+        const numClasesOpcionalesAImpartir = numClasesDeseadas - mandatoryIds.length;
+        const numClasesADescartar = optionalIdsByPriority.length - numClasesOpcionalesAImpartir;
+        
+        const clasesOpcionalesDescartadas = numClasesADescartar > 0 ? optionalIdsByPriority.slice(-numClasesADescartar) : [];
+        const clasesADescartarSet = new Set(clasesOpcionalesDescartadas);
+
+        const clasesFinales = CONFIG.CLASES.filter(clase => !clasesADescartarSet.has(clase.id));
+        
+        generarAgenda(clasesFinales);
+        renderizarVistas();
+    }
+
+    function generarAgenda(clasesFinales) {
+        const diaClaseSeleccionado = parseInt(document.querySelector('input[name="dia_clase"]:checked').value);
+        const fechaInicio = new Date(dom.fechaInicio.value + "T00:00:00");
+        
+        diasFestivosSet.clear();
+        dom.diasFestivos.value.split('\n').filter(Boolean).forEach(linea => diasFestivosSet.add(linea.trim()));
+
+        agendaClases = {};
+        let fechaActual = fechaInicio;
+        let claseIndex = 0;
+        
+        while (claseIndex < clasesFinales.length) {
+            const diaSemanaActual = fechaActual.getDay();
+            const fechaStr = fechaActual.toISOString().slice(0, 10);
+            
+            if (diaSemanaActual === diaClaseSeleccionado && !diasFestivosSet.has(fechaStr)) {
+                agendaClases[fechaStr] = clasesFinales[claseIndex];
+                claseIndex++;
+            }
+            fechaActual.setDate(fechaActual.getDate() + 1);
+        }
+    }
+
+    function renderizarVistas() {
+        const activeTabDate = dom.calendarTabs.querySelector('.active')?.dataset.date;
+        renderizarTabs(activeTabDate);
+        const currentActiveTab = dom.calendarTabs.querySelector('.active');
+        if (currentActiveTab) {
+            const [year, month] = currentActiveTab.dataset.date.split('-').map(Number);
+            renderizarMes(year, month);
+        }
+    }
+
+    function renderizarTabs(activeDate = null) {
+        dom.calendarTabs.innerHTML = '';
+        const defaultActive = "2025-8";
+        let foundActive = false;
+        
+        for (let year = 2025; year <= 2026; year++) {
+            for (let month = 0; month < 12; month++) {
+                if ((year === 2025 && month >= 8) || (year === 2026 && month <= 6)) {
+                    const date = new Date(year, month);
+                    const monthName = date.toLocaleString('es-ES', { month: 'short' });
+                    const dateStr = `${year}-${month}`;
+                    let activeClass = '';
+                    if (activeDate === dateStr) {
+                        activeClass = 'active';
+                        foundActive = true;
+                    }
+                    dom.calendarTabs.innerHTML += `<button class="tab-link ${activeClass}" data-date="${dateStr}">${monthName}. ${year}</button>`;
+                }
+            }
+        }
+        
+        if (!foundActive) {
+            const defaultTab = dom.calendarTabs.querySelector(`[data-date="${defaultActive}"]`);
+            if (defaultTab) defaultTab.classList.add('active');
+        }
+
+        dom.calendarTabs.querySelectorAll('.tab-link').forEach(tab => tab.addEventListener('click', (e) => {
+            dom.calendarTabs.querySelector('.active')?.classList.remove('active');
+            e.currentTarget.classList.add('active');
+            const [year, month] = e.currentTarget.dataset.date.split('-').map(Number);
+            renderizarMes(year, month);
+        }));
+    }
+
+    function renderizarMes(year, month) {
+        dom.calendarGrid.innerHTML = '';
+        ['L', 'M', 'X', 'J', 'V', 'S', 'D'].forEach(dia => dom.calendarGrid.innerHTML += `<div class="day-header">${dia}</div>`);
+        
+        const primerDia = new Date(year, month, 1);
+        let diaInicio = primerDia.getDay();
+        diaInicio = diaInicio === 0 ? 6 : diaInicio - 1;
+
+        for (let i = 0; i < diaInicio; i++) { dom.calendarGrid.innerHTML += `<div class="day-cell empty"></div>`; }
+        
+        const diasEnMes = new Date(year, month + 1, 0).getDate();
+        for (let dia = 1; dia <= diasEnMes; dia++) {
+            const fechaActual = new Date(year, month, dia);
+            const fechaStr = fechaActual.toISOString().slice(0, 10);
+            
+            const cell = document.createElement('div');
+            cell.className = 'day-cell';
+            if ([0, 6].includes(fechaActual.getDay())) cell.classList.add('weekend');
+            if (diasFestivosSet.has(fechaStr)) cell.classList.add('holiday');
+            
+            let contenido = `<span class="day-number">${dia}</span>`;
+            if (agendaClases[fechaStr]) {
+                const clase = agendaClases[fechaStr];
+                contenido += `<div class="clase-info" style="background-color: ${clase.color};">
+                                <strong class="clase-info-title">${clase.nombre}</strong>
+                                <span class="clase-info-subtitle">Clase #${clase.id}</span>
+                              </div>`;
+            }
+            cell.innerHTML = contenido;
+            dom.calendarGrid.appendChild(cell);
+        }
+    }
+    
+    inicializar();
+});
+</script>
+</body>
+</html>
